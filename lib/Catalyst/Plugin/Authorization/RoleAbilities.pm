@@ -1,0 +1,109 @@
+package Catalyst::Plugin::Authorization::RoleAbilities;
+
+# ABSTRACT: Ability based authorization for Catalyst (using only Roles)
+
+use Moose;
+extends 'Catalyst::Plugin::Authorization::Roles';
+
+use Set::Object         ();
+use Scalar::Util        ();
+use Catalyst::Exception ();
+
+sub assert_user_ability {
+    my ($c, @actions) = @_;
+
+    my $user;
+
+    if (Scalar::Util::blessed($actions[0]) && $actions[0]->isa("Catalyst::Authentication::User")) {
+
+        # A user was supplied in the arguments
+        $user = shift @actions;
+    }
+
+    $user ||= $c->user;
+
+    Catalyst::Exception->throw("No logged in user, and none supplied as argument") unless $user;
+
+    my $have = Set::Object->new(map { $_->name } $user->user_roles->search_related('role')->search_related('role_actions')->search_related('action'));
+    my $need = Set::Object->new(@actions);
+
+    if ($have->superset($need)) {
+        $c->log->debug("Action granted: @actions") if $c->debug;
+        return 1;
+    } else {
+        $c->log->debug("Action denied: @actions") if $c->debug;
+        my @missing = $need->difference($have)->members;
+        Catalyst::Exception->throw("Missing actions: @missing");
+    }
+}
+
+__PACKAGE__->meta->make_immutable;
+1;
+
+=head1 SYNOPSIS
+
+    use Catalyst qw/
+    	Authentication
+    	Authorization::RoleAbilities
+    /;
+
+    sub delete : Local {
+    	my ( $self, $c ) = @_;
+
+    	$c->assert_user_ability( qw/delete_user/ ); # only users with roles that can perform this action can delete
+
+    	$c->model("User")->delete_it();
+    }
+
+=head1 DESCRIPTION
+
+Ability based authorization allows more flexibility than role based authorization.  Users can have roles, which then
+have many actions associated.  An action can be associated with several roles.  With this you don't check whether a user
+has specific roles, but instead whether the roles can perform specific actions.
+
+L<Catalyst::Plugin::Authorization::RoleAbilities> extends L<Catalyst::Plugin::Authorization::Roles> so every method of
+L<Catalyst::Plugin::Authorization::Roles> still can be used.
+
+See L<SEE ALSO> for other authorization modules.
+
+=head1 METHODS
+
+=head2 assert_user_ability [ $user ], @actions
+
+Checks that the roles of the user (as supplied by the first argument, or, if omitted,
+C<< $c->user >>) has the ability to perform specified actions.
+
+If for any reason (C<< $c->user >> is not defined, the user's roles are missing the
+appropriate action, etc.) the check fails, an error is thrown.
+
+You can either catch these errors with an eval, or clean them up in your C<end>
+action.
+
+=head1 REQUIRED TABLES
+
+=head2 Actions
+
+Table name: C<actions>
+
+Columns:
+
+=for :list
+* C<id>, as C<integer>, Primary Key
+* C<name>, as C<character varying> or C<text>
+
+=head2 Roles to Actions
+
+Table name: C<role_actions>
+
+Columns:
+
+=for :list
+* C<id>, as C<integer>, Primary Key
+* C<role_id>, as C<integer>, Foreign Key to C<roles.id>
+* C<action_id>, as C<integer>, Foreign Key to C<actions.id>
+
+=head1 SEE ALSO
+
+=for :list
+* L<Catalyst::Plugin::Authorization::Roles>
+* L<Catalyst::Plugin::Authorization::Abilities> - A more complex ability based authorization module
