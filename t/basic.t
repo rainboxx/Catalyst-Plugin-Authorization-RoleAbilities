@@ -25,6 +25,9 @@ throws_ok { $c->assert_user_ability("move") } qr/missing action.*move/i, "missin
 throws_ok { $c->assert_user_ability(qw/delete move/) } qr/missing action.*move/i, "also when there are existing actions";
 throws_ok { $c->assert_user_ability(@action_names, qw/move/) } qr/missing action.*move/i, "even all actions";
 
+is($c->check_user_ability("delete"), 1, "check_user_ability true");
+is($c->check_user_ability("move"),   0, "check_user_ability false");
+
 $c = MockAuthz->new(undef);
 
 throws_ok { $c->assert_user_ability("delete") } qr/no logged in user/i, "can't assert without logged user";
