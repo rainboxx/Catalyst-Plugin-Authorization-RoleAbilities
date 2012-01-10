@@ -86,7 +86,7 @@ appropriate action, etc.) the check fails, an error is thrown.
 You can either catch these errors with an eval, or clean them up in your C<end>
 action.
 
-=item check_user_ability [ $user ], @actions
+=head2 check_user_ability [ $user ], @actions
  
 Takes the same args as C<assert_user_ability>, and performs the same check, but
 instead of throwing errors returns a boolean value.
